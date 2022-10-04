@@ -1,0 +1,15 @@
+---
+title: "Homework 2 - P8105"
+author: "Tim Hauser (th2899)"
+date: 2022-10-05
+output: github_document
+---
+
+```{r setup}
+library(tidyverse)
+library(readxl)
+library(haven)
+```
+
+
+
