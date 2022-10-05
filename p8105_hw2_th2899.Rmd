@@ -141,4 +141,72 @@ The total weight of trash collected by Professor Trash Wheel is `r sum(select(fi
 
 The total number of sports balls collected by Mr. Trash Wheel in 2020 is `r sum(select(filter(combined_trash, trash_wheel == "mister", year == "2020"), sports_balls))`.
 
+## Problem 3
 
+First, I clean the data in pols-month.csv: use separate() to break up the variable mon into integer variables year, month, and day; replace month number with month name; create a president variable taking values gop and dem, and remove prez_dem and prez_gop; and remove the day variable:
+
+```{r}
+pols_month = 
+  read_csv("./data/pols-month.csv") %>% 
+  janitor::clean_names() %>% 
+  separate(mon, into = c("year", "month","day")) %>%
+  mutate(month = as.integer(month),
+         month = month.name[month],
+         year = as.integer(year)) %>% 
+  mutate(president = if_else(prez_gop == 0, "dem", "gop")) %>%
+  select(-prez_dem, -prez_gop, -day)
+```
+
+
+Second, I clean the data in snp.csv using a similar process to the above. For consistency across datasets, I arranged according to year and month, and organized so that year and month are the leading columns:
+
+```{r}
+snp = 
+  read_csv("./data/snp.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(date = lubridate::mdy(date)) %>% 
+  separate(date, into = c("year", "month","day")) %>%
+  mutate(
+    year = as.integer(year),
+    year = ifelse(year > 2050, year - 100, year)) %>%
+## Note: somehow the lubridate function converted all years older than 1959 (i.e., 58 or lower) into future dates (i.e., 2058) instead of past datest (i.e., 1958) - this formula fixed it
+  mutate(month = as.integer(month),
+         month = month.name[month]) %>%
+  select(-day) %>% 
+  relocate(year, month) %>%
+  arrange(year, month)
+```
+
+
+Third, I tidy the unemployment data by switching from “wide” to “long” format; ensuring that key variables have the same name; and ensuring that key variables take the same values:
+
+```{r}
+unemployment = 
+  read_csv("./data/unemployment.csv") %>%
+  pivot_longer(
+    Jan:Dec,
+    names_to = "month",
+    values_to = "unemployment") %>%
+  janitor::clean_names() %>%
+  mutate(
+    month = month.name[match(month,month.abb)],
+    year = as.integer(year))
+```
+
+Lastly, I join the datasets by merging snp into pols, and merging unemployment into the result.
+
+```{r}
+combined_p3 = 
+  left_join(pols_month, snp) %>% 
+  left_join(unemployment)
+```
+
+Quickly double-checking whether the piping works with join functions as expected:
+
+```{r}
+combined_p3_2 = left_join(pols_month, snp)
+combined_p3_2 = left_join(combined_p3_2, unemployment)
+```
+
+
+Pols_month is a `r nrow(pols_month)` rows by `r ncol(pols_month)` columns dataset with a range of years of `r range(pull(pols_month, year))` and which contains the following key variables `r names(pols_month)` . Snp is a `r nrow(snp)` rows by `r ncol(snp)` columns dataset with a range of years of `r range(pull(snp, year))` and which contains the following key variables `r names(snp)`. Unemployment is a `r nrow(unemployment)` rows by `r ncol(unemployment)` columns dataset with a range of years of `r range(pull(unemployment, year))` and which contains the following key variables `r names(unemployment)`. By combining all three datasets into a single one called combined_p3, which is a `r nrow(combined_p3)` rows by `r ncol(combined_p3)` columns dataset with a range of years of `r range(pull(combined_p3, year))` and which contains the following key variables `r names(combined_p3)`.
