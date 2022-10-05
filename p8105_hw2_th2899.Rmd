@@ -103,3 +103,42 @@ Of these stations `r nrow(filter(nyc_transit_distinct_tidy_df, route_name == "A"
 
 
 ## Problem 2
+
+The following code loads the data from the Excel into a dataframe and specifies the sheet in the Excel file and omits non-data entries. By applying clean_names I ensure the use of reasonable variable names. Next I omit rows that do not include dumpster-specific data (i.e., the last row) and round the number of sports balls to the nearest integer and convert the result to an integer variable:
+
+```{r}
+mr_trash = 
+  readxl::read_excel("./data/Trash Wheel Collection Data.xlsx", sheet = "Mr. Trash Wheel", range = "A2:N550") %>%
+  mutate(trash_wheel = "mister") %>% 
+  janitor::clean_names() %>% 
+  drop_na(dumpster) %>% 
+  mutate(sports_balls = as.integer(round(sports_balls, 0)))
+```
+
+I repeat the same process for the Professor Trash Wheel, except that this dataset does not contain a sport ball column, and that I transform the year variable from numeric to character to match the mister_trash dataset:
+
+```{r}
+professor_trash = 
+  readxl::read_excel("./data/Trash Wheel Collection Data.xlsx", sheet = "Professor Trash Wheel", range = "A2:M91") %>%
+  mutate(trash_wheel = "professor") %>% 
+  janitor::clean_names() %>% 
+  drop_na(dumpster) %>% 
+  mutate(year = as.character(year))
+```
+
+Then I combine the two datasets:
+
+```{r}
+combined_trash =
+  bind_rows(mr_trash, professor_trash)
+```
+
+There are `r nrow(combined_trash)` observations in the combined dataset.
+
+A list of all (key) variables `r names(combined_trash)`
+
+The total weight of trash collected by Professor Trash Wheel is `r sum(select(filter(combined_trash, trash_wheel == "professor"), weight_tons))` tons.
+
+The total number of sports balls collected by Mr. Trash Wheel in 2020 is `r sum(select(filter(combined_trash, trash_wheel == "mister", year == "2020"), sports_balls))`.
+
+
