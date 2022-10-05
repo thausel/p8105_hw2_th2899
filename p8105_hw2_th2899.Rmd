@@ -5,11 +5,101 @@ date: 2022-10-05
 output: github_document
 ---
 
-```{r setup}
+```{r setup, include = FALSE}
 library(tidyverse)
 library(readxl)
 library(haven)
 ```
 
+## Problem 1
+
+In the following piped code I'm going to 1. import the NYC Transit data, 2. do some basic cleaning, 3. only select certain columns and re-order the columns into a specific order (line, station name, station latitude / longitude, routes served, entry, vending, entrance type, and ADA compliance), and 4. convert the entry variable from character to a logical variable:
+
+```{r data, warning = FALSE}
+nyc_transit_df = 
+  read_csv("./data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv") %>% 
+  janitor::clean_names() %>% 
+  select(line:route11, entry, vending, entrance_type, ada) %>% 
+  mutate(entry = if_else(entry == "YES", TRUE, FALSE))
+```
+
+To gain an overview of the dataset and the variables it contains:
+
+```{r}
+skimr::skim(nyc_transit_df)
+```
+
+The data cleaning steps are described above. We are left with 19 variables: line name (character, station name (character), one column each for the first seven routes being served by that station (character), whether there is a vending machine (character since yes/no), the entrance type  (character), whether it's an entry vs. exit (logical), whether it meets ADA compliance (logical), one column each for the latitude and logitude parameters (numeric) and  meets one column each for the eight to eleventh route being served by that station (numeric). After the cleaning, we are left with `r nrow(nyc_transit_df)` rows and `r ncol(nyc_transit_df)` columns.
+
+The dataset is not clean in many ways. First and most importantly, as it is right now it contains many duplicate rows, that is because we excluded many of the columns that would have made these rows distinct. Second, the variable types for routes 8-11 are registered as numeric (simply because they only contain metro lines that are numbers), even though they should be character variables. Third, the vending variables is a character variable but should probably be transformed into logical one. Fourth, the way the routes are displayed seems very clumsy to me - instead of first to eleventh route, one could think of having one column per metro line (e.g., R, N, etc.,) and then a logical variable (TRUE / FALSE) whether that specific line is served or not.
 
 
+Checking how many distinct stations there are:
+
+```{r}
+nyc_transit_distinct_df = distinct(nyc_transit_df, station_name, line, .keep_all = TRUE)
+```
+
+There are `r nrow(nyc_transit_distinct_df)` distinct stations.
+
+
+Double checking above solution with a different approach (that I am more used to from Excel):
+
+```{r}
+nyc_transit_combined_df = nyc_transit_df %>% unite(combined, c(station_name, line), sep = " ", remove = FALSE)
+
+nyc_transit_combined_distinct_df = distinct(nyc_transit_combined_df, combined, .keep_all = TRUE)
+```
+
+It also yields `r nrow(nyc_transit_combined_distinct_df)` distinct stations.
+
+
+Filtering among the newly created dataframe of distinct stations by only ADA compliant stations:
+
+```{r}
+nrow(filter(nyc_transit_distinct_df, ada == TRUE))
+```
+
+There are `r nrow(filter(nyc_transit_distinct_df, ada == TRUE))` distinct stations that are ADA compliant.
+
+
+To check what proportion of station entrances / exits without vending allow entrance we go back to the old dataframe:
+
+Total number of entrances / exits without vending: `r nrow(filter(nyc_transit_df, vending == "NO"))`
+
+Total number of entrances / exits without vending that allow entry: `r nrow(filter(nyc_transit_df, vending == "NO", entry == TRUE))`
+
+Hence, the proportion of station entrances / exits without vending that allow entrance is `r nrow(filter(nyc_transit_df, vending == "NO", entry == TRUE)) / nrow(filter(nyc_transit_df, vending == "NO"))`
+
+
+In the following we first transform route 8 - 11 from numeric to character variables. Then we use pivot_longer to combine all route columns into route number and route name. Then we drop all rows that contain NA in the route name column. Lastly, we mutate route number variable to drop the repeated route and instead just show a number:
+
+```{r}
+nyc_transit_distinct_tidy_df = 
+  transform(nyc_transit_distinct_df,
+            route8 = as.character(route8), 
+            route9 = as.character(route9), 
+            route10 = as.character(route10), 
+            route11 = as.character(route11)) %>% 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_number",
+    values_to = "route_name"
+    ) %>% 
+  drop_na(route_name) %>% 
+  mutate(route_number = str_sub(route_number, 6, -1))
+```
+
+Now we filter this dataframe to only show stations that serve the A train and of this subset those that are ADA compliant:
+
+```{r}
+nrow(filter(nyc_transit_distinct_tidy_df, route_name == "A"))
+nrow(filter(nyc_transit_distinct_tidy_df, route_name == "A", ada == TRUE))
+```
+
+There are `r nrow(filter(nyc_transit_distinct_tidy_df, route_name == "A"))` stations serving the A train.
+
+Of these stations `r nrow(filter(nyc_transit_distinct_tidy_df, route_name == "A", ada == TRUE))` are ADA compliant.
+
+
+## Problem 2

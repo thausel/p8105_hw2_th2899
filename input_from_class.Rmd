@@ -1,0 +1,359 @@
+---
+title: "Data Import"
+output: github_document
+---
+
+```{r setup}
+library(tidyverse)
+library(readxl)
+library(haven)
+```
+
+#### DATA IMPORT
+
+## Read in some data
+
+Read in the litters dataset and clean it using clean_names (e.g., turns titles in snakecase)
+
+```{r}
+litters_df = read_csv("./data/FAS_litters.csv")
+litters_df = janitor::clean_names(litters_df)
+```
+
+## Take a look at data
+
+Printing in the console, so you can see everything that is going in
+```{r}
+litters_df
+```
+
+Look at head/tail of the litters dataset
+```{r}
+tail(litters_df)
+```
+
+Gives a nice overview of the data
+```{r}
+skimr::skim(litters_df)
+```
+
+View the data in a separate tab using view (dataframe_name) --> but only do that in the console or else the it can mess up the knitting process
+
+## Options to view data
+
+Skip first row , make sure first row is not taken as names , empty values show up as NA
+
+```{r}
+litters_df = read_csv("./data/FAS_litters.csv", skip = 10, col_names = FALSE, na = c("", "NA", ".", 999))
+```
+
+Check out `?read_csv()` for more information
+
+## Other file formats
+
+Read in an Excel file
+
+```{r}
+mlb_df = read_excel("./data/mlb11.xlsx")
+mlb_df
+```
+
+Read in a SAS file
+
+```{r}
+pulse_df = read_sas("./data/public_pulse_data.sas7bdat")
+pulse_df
+```
+
+## Comparison with Base R
+
+what about`read.csv`
+
+```{r}
+litters_base = read.csv("data/FAS_litters.csv")
+litters_readr = read_csv("data/FAS_litters.csv")
+
+litters_base
+litters_readr
+```
+
+
+## Exporting data
+
+Export the mlb sub-table
+
+```{r}
+write_csv(mlb_df, "./data/mlb_subtable.csv")
+```
+
+
+#### DATA MANIPULATION
+
+
+## Load in FAS litters
+
+```{r}
+litters_df = read_csv("./data/FAS_litters.csv")
+litters_df = janitor::clean_names(litters_df)
+litters_df
+```
+
+## `select`
+
+chose some columns and not others
+
+```{r}
+select(litters_df, group, gd0_weight)
+```
+
+```{r}
+select(litters_df, group, gd0_weight:gd_of_birth)
+```
+
+```{r}
+select(litters_df, -litter_number)
+```
+
+Renaming columns
+
+```{r}
+select(litters_df, GROUP = group, LITTer_NUMBer = litter_number)
+```
+
+```{r}
+rename(litters_df, GROUP = group, LITTer_NUMBer = litter_number)
+```
+
+Select helpers
+
+```{r}
+select(litters_df, starts_with("gd"))
+```
+
+moves litter number to the beginning using two methods
+
+```{r}
+select(litters_df, litter_number, everything())
+```
+
+```{r}
+relocate(litters_df, litter_number)
+```
+
+## `filter`
+
+```{r}
+filter(litters_df, gd0_weight < 22)
+```
+
+```{r}
+filter(litters_df, gd0_weight >= 22)
+```
+
+```{r}
+filter(litters_df, gd_of_birth == 20)
+```
+
+```{r}
+filter(litters_df, !(gd_of_birth == 20))
+```
+
+same as this
+
+```{r}
+filter(litters_df, gd_of_birth != 20)
+```
+
+select multiple things
+
+```{r}
+filter(litters_df, gd0_weight >= 22, gd_of_birth == 20)
+```
+
+```{r}
+filter(litters_df, group == "Mod8")
+```
+
+```{r}
+filter(litters_df, group %in% c("Con7", "Mod8"))
+```
+
+## `mutate` modify existing variable or create new variable
+
+```{r}
+mutate(litters_df, wt_gain = gd18_weight - gd0_weight)
+```
+
+```{r}
+mutate(
+  litters_df, 
+  wt_gain = gd18_weight - gd0_weight,
+  group = str_to_lower(group))
+```
+
+## `arange` order data by columns
+
+```{r}
+arrange(litters_df, pups_born_alive)
+```
+
+## `%>%`
+
+```{r}
+litters_data_raw = read_csv("./data/FAS_litters.csv")
+litters_clean_name = janitor::clean_names(litters_data_raw)
+litters_data_selected = select(litters_clean_name, -pups_survive)
+litters_mutated = mutate(litters_data_selected, wt_gain = gd18_weight - gd0_weight)
+litters_without_missing = drop_na(litters_mutated, gd0_weight)
+```
+
+USE THE PIPE OPERATOR INSTEAD
+
+```{r}
+litters_df = 
+  read_csv("./data/FAS_litters.csv") %>% 
+  janitor::clean_names() %>% 
+  select(-pups_survive) %>% 
+  mutate(wt_gain = gd18_weight - gd0_weight) %>% 
+  drop_na(gd0_weight)
+```
+
+
+
+#### TIDY DATA
+
+
+## pivot_longer
+
+```{r}
+pulse_df =
+  haven::read_sas("./data/public_pulse_data.sas7bdat") %>% 
+  janitor::clean_names() %>% 
+  pivot_longer(
+    bdi_score_bl:bdi_score_12m,
+    names_to = 'visit',
+    values_to = 'bdi',
+    names_prefix = 'bdi_score_'
+  ) %>% 
+mutate(
+  visit = replace(visit, visit == 'bl', '00m'),
+  visit = factor(visit)
+) %>% 
+arrange(id, visit)
+```
+
+## learning assessment 1
+
+```{r}
+litters_wide = 
+  read_csv("./data/FAS_litters.csv") %>%
+  janitor::clean_names() %>%
+  select(litter_number, ends_with("weight")) %>% 
+  pivot_longer(
+    gd0_weight:gd18_weight,
+    names_to = "gd", 
+    values_to = "weight") %>% 
+mutate(gd = recode(gd, "gd0_weight" = 0, "gd18_weight" = 18))
+```
+
+## pivot_wider
+
+```{r}
+analysis_result = tibble(
+  group = c("treatment", "treatment", "placebo", "placebo"),
+  time = c("pre", "post", "pre", "post"),
+  mean = c(4, 8, 3.5, 4)
+)
+```
+
+```{r}
+analysis_result_wide = pivot_wider(
+  analysis_result, 
+  names_from = "time", 
+  values_from = "mean")
+```
+
+
+## binding rows
+
+Open Excel to make this easier (i.e., knowing which columns to pick). First step is to create 3 separate tables, one for each movie
+
+```{r}
+fellowship_ring = 
+  readxl::read_excel("./data/LotR_Words.xlsx", range = "B3:D6") %>%
+  mutate(movie = "fellowship_ring")
+
+two_towers = 
+  readxl::read_excel("./data/LotR_Words.xlsx", range = "F3:H6") %>%
+  mutate(movie = "two_towers")
+
+return_king = 
+  readxl::read_excel("./data/LotR_Words.xlsx", range = "J3:L6") %>%
+  mutate(movie = "return_king")
+```
+
+Now we combine the three tables.
+
+```{r}
+lotr_tidy = 
+  bind_rows(fellowship_ring, two_towers, return_king) %>%
+  janitor::clean_names() %>%
+  pivot_longer(
+    female:male,
+    names_to = "gender", 
+    values_to = "words") %>%
+  mutate(race = str_to_lower(race)) %>% 
+  select(movie, everything()) 
+```
+
+## Joining datasets
+
+```{r}
+pups = 
+  read_csv("./data/FAS_pups.csv") %>%
+  janitor::clean_names() %>%
+  mutate(
+    sex = recode(sex, `1` = "male", `2` = "female"),
+    sex = factor(sex)) 
+```
+
+```{r}
+litter = 
+  read_csv("./data/FAS_litters.csv") %>%
+  janitor::clean_names() %>%
+  separate(group, into = c("dose", "day_of_tx"), sep = 3) %>%
+  relocate(litter_number) %>%
+  mutate(
+    wt_gain = gd18_weight - gd0_weight,
+    dose = str_to_lower(dose))
+```
+
+Now we do a left-join because we want to analyze the data of the babies (not the mothers)
+
+```{r}
+fas_data = 
+  left_join(pups, litter, by = "litter_number")
+```
+
+## learning assessment 2
+
+```{r}
+surv_os = read_csv("data/surv_os.csv") %>% 
+  janitor::clean_names() %>% 
+  rename(id = what_is_your_uni, os = what_operating_system_do_you_use)
+
+surv_pr_git = read_csv("data/surv_program_git.csv") %>% 
+  janitor::clean_names() %>% 
+  rename(
+    id = what_is_your_uni, 
+    prog = what_is_your_degree_program,
+    git_exp = which_most_accurately_describes_your_experience_with_git)
+
+surv_data = 
+  full_join(surv_os, surv_pr_git, by = "id")
+```
+
+
+
+
+
